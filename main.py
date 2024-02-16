@@ -1,24 +1,31 @@
-import pygame
-import time
+import json
 
+import pygame
+import pygame_gui
+import time
+import tkinter as tk
+from tkinter import filedialog
 from utils import Button
 
+
 FPS = 60
-SCREEN_WIDTH = 900
-SCREEN_HEIGTH = 900
+SCREEN_WIDTH = 950
+SCREEN_HEIGHT = 900
 
 UPDATE_RATE = .5  # in seconds
 
-control_pane_height = SCREEN_HEIGTH / 5
+control_pane_height = SCREEN_HEIGHT / 5
 control_pane_width = SCREEN_WIDTH
 panel_x = 0
-panel_y = SCREEN_HEIGTH - control_pane_height
+panel_y = SCREEN_HEIGHT - control_pane_height
 
-field_size = min(SCREEN_HEIGTH, SCREEN_WIDTH) - control_pane_height
+field_size = min(SCREEN_HEIGHT, SCREEN_WIDTH) - control_pane_height
 
 FIELD_WIDTH = 30
 
 cell_width = field_size / FIELD_WIDTH
+
+FIELD_OFFSET_X = (SCREEN_WIDTH - cell_width * FIELD_WIDTH) / 2
 
 # count_fps = 0
 # last_time = time.time()
@@ -37,19 +44,37 @@ moving = False
 
 buttons = []
 
+# Init tk for filedialogs
+root = tk.Tk()
+root.withdraw()
+
+# Game params
+BIRTH_PARAM = [3]
+SURVIVE_PARAM = [2, 3]
+
+
 def main():
-    load_initial_state()
     pygame.init()
-    screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGTH])
+    screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
     clock = pygame.time.Clock()
 
     running = True
     while running:
         events = pygame.event.get()
+
         for event in events:
             if event.type == pygame.QUIT:
                 running = False
                 continue
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                x -= FIELD_OFFSET_X
+                if x <= field_size and y <= field_size:
+                    row = int(x // cell_width)
+                    column = int(y // cell_width)
+                    field[column][row] = not field[column][row]
+
         dt = clock.tick(FPS)
         get_input(events)
         update(dt)
@@ -57,22 +82,10 @@ def main():
         # print_fps()
         pygame.display.flip()
 
+
     pygame.quit()
 
 
-def load_initial_state():
-    # TODO: implement loading from file
-
-    center = FIELD_WIDTH // 2
-    cells = [
-        (center, center),
-        (center, center - 1),
-        (center - 1, center),
-        (center + 1, center),
-    ]
-    for (x, y) in cells:
-        if x >= 0 and x < FIELD_WIDTH and y >= 0 and y < FIELD_WIDTH:
-            field[y][x] = True
 
 def get_input(events):
     for event in events:
@@ -120,40 +133,38 @@ def update_state():
                  for _ in range(FIELD_WIDTH)]
 
     def get_neighbours(x, y):
-        neighbours = 0
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                if (i == 0 and j == 0):
-                    continue
-                new_x = x + i
-                new_y = y + j
-                if new_x >= 0 and new_x < FIELD_WIDTH and new_y >= 0 and new_y < FIELD_WIDTH:
-                    cell = field[new_y][new_x]
-                    if cell:
-                        neighbours += 1
-        return neighbours
+        neighbour_cells = [
+            field[y - 1][x - 1],
+            field[y - 1][x],
+            field[y - 1][(x + 1) % FIELD_WIDTH],
+
+            field[y][x - 1],
+            field[y][(x + 1) % FIELD_WIDTH],
+
+            field[(y + 1) % FIELD_WIDTH][x - 1],
+            field[(y + 1) % FIELD_WIDTH][x],
+            field[(y + 1) % FIELD_WIDTH][(x + 1) % FIELD_WIDTH]
+        ]
+        return sum(neighbour_cells)
+
+
 
     for y, row in enumerate(field):
         for x, cell in enumerate(row):
             neighbours = get_neighbours(x, y)
 
-            # Any live cell with fewer than two live neighbors dies, as if by underpopulation.
-            if cell and neighbours < 2:
+            # Any live cell which does not meet survive criteria dies.
+            if cell and neighbours not in SURVIVE_PARAM:
                 new_field[y][x] = False
                 continue
 
-            # Any live cell with two or three live neighbors lives on to the next generation.
-            if cell and neighbours == 2 or neighbours == 3:
+            # Any live cell which meets survive criteria lives on.
+            if cell and neighbours in SURVIVE_PARAM:
                 new_field[y][x] = True
                 continue
 
-            # Any live cell with more than three live neighbors dies, as if by overpopulation.
-            if cell and neighbours > 3:
-                new_field[y][x] = False
-                continue
-
-            # Any dead cell with exactly three live neighbors becomes a live cell, as if by reproduction
-            if not cell and neighbours == 3:
+            # Any dead cell which meets birth criteria becomes a live cell
+            if not cell and neighbours in BIRTH_PARAM:
                 new_field[y][x] = True
                 continue
 
@@ -165,9 +176,11 @@ def draw(screen):
 
     screen.fill((255, 255, 255))
 
+
+
     for y, row in enumerate(field):
         for x, cell in enumerate(row):
-            rect = pygame.Rect(x * cell_width, y *
+            rect = pygame.Rect(FIELD_OFFSET_X + x * cell_width, y *
                                cell_width, cell_width, cell_width)
             color = (0, 0, 0) if cell else (255, 255, 255)
             border_color = (160, 160, 160)
@@ -181,25 +194,67 @@ def draw(screen):
     button_height = control_pane_height / 4
     button_width = button_height * 3
 
+
     spacing = control_pane_width / 5
 
     buttons = [
         Button(
-            control_pane_width / 2 - button_width / 2 - spacing,
-            control_pane_height / 2,
+            control_pane_width / 2 - button_width / 2 - 3 * spacing / 2,
+            control_pane_height / 4,
             button_width,
             button_height,
             "start" if not moving else "stop",
             on_start_button
         ),
         Button(
-            control_pane_width / 2 - button_width / 2 + spacing,
-            control_pane_height / 2,
+            control_pane_width / 2 - button_width / 2 - spacing / 2,
+            control_pane_height / 4,
             button_width,
             button_height,
             "step",
             on_step
         ),
+        Button(
+            control_pane_width / 2 - button_width / 2 + spacing / 2,
+            control_pane_height / 4,
+            button_width,
+            button_height,
+            "slower",
+            on_slower
+        ),
+        Button(
+            control_pane_width / 2 - button_width / 2 + 3 * spacing / 2,
+            control_pane_height / 4,
+            button_width,
+            button_height,
+            "faster",
+            on_faster
+        ),
+        Button(
+            control_pane_width / 2 - button_width / 2 - spacing,
+            3 * control_pane_height / 4 - 20,
+            button_width,
+            button_height,
+            "load",
+            on_load
+        ),
+        Button(
+            control_pane_width / 2 - button_width / 2,
+            3 * control_pane_height / 4 - 20,
+            button_width,
+            button_height,
+            "save",
+            on_save
+        ),
+        Button(
+            control_pane_width / 2 - button_width / 2 + spacing,
+            3 * control_pane_height / 4 - 20,
+            button_width,
+            button_height,
+            "reset",
+            on_reset
+        ),
+
     ]
 
     for button in buttons:
@@ -216,6 +271,33 @@ def on_start_button():
 def on_step():
     step()
 
+def on_load():
+    global field
+    with filedialog.askopenfile(
+            defaultextension=".txt",
+            filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
+        field = json.loads(f.read())
+
+def on_save():
+    with filedialog.asksaveasfile(
+            initialfile='state.txt',
+            defaultextension=".txt",
+            filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
+        f.write(json.dumps(field))
+
+def on_slower():
+    global UPDATE_RATE
+    if UPDATE_RATE < 2:
+        UPDATE_RATE += 0.05
+
+def on_faster():
+    global UPDATE_RATE
+    if UPDATE_RATE > 0.05:
+        UPDATE_RATE -= 0.05
+
+def on_reset():
+    global field
+    field = [[False for _ in range(FIELD_WIDTH)] for _ in range(FIELD_WIDTH)]
 
 if __name__ == '__main__':
     main()
