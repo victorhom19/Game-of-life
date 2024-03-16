@@ -4,11 +4,12 @@ Provides basic types and functions for configuring and running 2D cellular autom
 See Conway "Game of Life" for more details:
 https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life#Rules
 """
-
+import os.path
 import time
 import json
 import tkinter as tk
 from tkinter import filedialog
+from typing import List
 
 import pygame
 
@@ -169,6 +170,14 @@ class CellularAutomata:
         next CA state based on current state and provided rules.
         Also considers cyclic shape of field when calculating cell neighbours.
         """
+
+        for row in self.field:
+            for el in row:
+                if type(el) is not int and type(el) is not bool:
+                    raise TypeError("Field values should be integers or booleans")
+                if el < 0 or el > 1:
+                    raise ValueError("Field values should be integers 0 or 1")
+
         new_field = [[False for _ in range(self.params.field_size)]
                      for _ in range(self.params.field_size)]
 
@@ -208,6 +217,26 @@ class CellularAutomata:
 
         return new_field
 
+    def set_params(self, grid_size: int, birth_param: List[int], survive_param: List[int]):
+        """ Sets provided game parameters, such as grid size and birth/survive rules """
+        if grid_size < 1:
+            raise ValueError(
+                "Grid size should be positive integer value"
+            )
+        for el in birth_param:
+            if el < 0 or el > 8:
+                raise ValueError(
+                    "Birth param should include only "
+                    "non-negative integer values between 0 and 8"
+                )
+        for el in birth_param:
+            if el < 0 or el > 8:
+                raise ValueError(
+                    "Survive param should include only "
+                    "non-negative integer values between 0 and 8"
+                )
+        self.params.set(grid_size, birth_param, survive_param)
+
     def draw(self, screen):
         """ Draws current CA state on pygame screen """
 
@@ -239,7 +268,7 @@ class CellularAutomata:
                 ),
                 size=(button_width, button_height),
                 text="start" if not self.moving else "stop",
-                f=self.on_start_button
+                f=self.on_switch_mode
             ),
             Button(
                 position=(
@@ -303,11 +332,7 @@ class CellularAutomata:
 
         screen.blit(panel, (PANEL_X, PANEL_Y))
 
-    def set_params(self, grid_size, birth_param, survive_param):
-        """ Sets provided game parameters, such as grid size and birth/survive rules """
-        self.params.set(grid_size, birth_param, survive_param)
-
-    def on_start_button(self):
+    def on_switch_mode(self):
         """ Start button callback function """
         self.moving = not self.moving
 
@@ -315,20 +340,28 @@ class CellularAutomata:
         """ Step button callback function """
         self.step()
 
-    def on_load(self):
+    def on_load(self, path_to_file=None):
         """ Load button callback function """
-        with filedialog.askopenfile(
-                defaultextension=".txt",
-                filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
-            self.field = json.loads(f.read())
+        if path_to_file is None:
+            with filedialog.askopenfile(
+                    defaultextension=".txt",
+                    filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
+                self.field = json.loads(f.read())
+        else:
+            with open(path_to_file) as f:
+                self.field = json.loads(f.read())
 
-    def on_save(self):
+    def on_save(self, path_to_file=None):
         """ Save button callback function """
-        with filedialog.asksaveasfile(
-                initialfile='state.txt',
-                defaultextension=".txt",
-                filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
-            f.write(json.dumps(self.field))
+        if path_to_file is None:
+            with filedialog.asksaveasfile(
+                    initialfile='state.txt',
+                    defaultextension=".txt",
+                    filetypes=[("All Files", "*.*"), ("Text Documents", "*.txt")]) as f:
+                f.write(json.dumps(self.field))
+        else:
+            with open(path_to_file, "w") as f:
+                f.write(json.dumps(self.field))
 
     def on_slower(self):
         """ Slower button callback function """
@@ -345,6 +378,7 @@ class CellularAutomata:
         self.field = [
             [False for _ in range(self.params.field_size)] for _ in range(self.params.field_size)
         ]
+        self.moving = False
         self.update_rate = 0.5
 
 
