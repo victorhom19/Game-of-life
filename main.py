@@ -104,24 +104,9 @@ class CellularAutomata:
         pygame.init()
         screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
 
-        running = True
-        while running:
+        self.running = True
+        while self.running:
             events = pygame.event.get()
-
-            for event in events:
-                if event.type == pygame.QUIT:
-                    running = False
-                    continue
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = pygame.mouse.get_pos()
-                    x -= FIELD_OFFSET_X
-                    if x <= FIELD_WIDTH and y <= FIELD_WIDTH:
-                        cell_width = FIELD_WIDTH / self.params.field_size
-                        row = int(x // cell_width)
-                        column = int(y // cell_width)
-                        self.field[column][row] = not self.field[column][row]
-
             self.get_input(events)
             self.update()
             self.draw(screen)
@@ -132,6 +117,19 @@ class CellularAutomata:
     def get_input(self, events):
         """ Listens for user input and executes callback function when user clicks on button """
         for event in events:
+            if event.type == pygame.QUIT:
+                self.running = False
+                continue
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                x -= FIELD_OFFSET_X
+                if x <= FIELD_WIDTH and y <= FIELD_WIDTH:
+                    cell_width = FIELD_WIDTH / self.params.field_size
+                    row = int(x // cell_width)
+                    column = int(y // cell_width)
+                    self.field[column][row] = not self.field[column][row]
+
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons:
@@ -161,49 +159,17 @@ class CellularAutomata:
         Does single evolution step according to
         current CA state and provided rules
         """
-        new_field = self.update_state()
-        self.field = new_field
-
-    def update_state(self):
-        """
-        Performs calculations needed for predicting
-        next CA state based on current state and provided rules.
-        Also considers cyclic shape of field when calculating cell neighbours.
-        """
-
-        for row in self.field:
-            for el in row:
-                if type(el) is not int and type(el) is not bool:
-                    raise TypeError("Field values should be integers or booleans")
-                if el < 0 or el > 1:
-                    raise ValueError("Field values should be integers 0 or 1")
-
         new_field = [[False for _ in range(self.params.field_size)]
                      for _ in range(self.params.field_size)]
 
-        def get_neighbours(x, y):
-            neighbour_cells = [
-                self.field[y - 1][x - 1],
-                self.field[y - 1][x],
-                self.field[y - 1][(x + 1) % self.params.field_size],
-
-                self.field[y][x - 1],
-                self.field[y][(x + 1) % self.params.field_size],
-
-                self.field[(y + 1) % self.params.field_size][x - 1],
-                self.field[(y + 1) % self.params.field_size][x],
-                self.field[(y + 1) % self.params.field_size][(x + 1) % self.params.field_size]
-            ]
-            return sum(neighbour_cells)
+        for row in self.field:
+            for el in row:
+                if type(el) is not bool:
+                    raise TypeError("Field values should be booleans")
 
         for y, row in enumerate(self.field):
             for x, cell in enumerate(row):
-                neighbours = get_neighbours(x, y)
-
-                # Any live cell which does not meet survive criteria dies.
-                if cell and neighbours not in self.params.survive_param:
-                    new_field[y][x] = False
-                    continue
+                neighbours = self.get_neighbours(x, y)
 
                 # Any live cell which meets survive criteria lives on.
                 if cell and neighbours in self.params.survive_param:
@@ -215,7 +181,7 @@ class CellularAutomata:
                     new_field[y][x] = True
                     continue
 
-        return new_field
+        self.field = new_field
 
     def set_params(self, grid_size: int, birth_param: List[int], survive_param: List[int]):
         """ Sets provided game parameters, such as grid size and birth/survive rules """
@@ -236,6 +202,22 @@ class CellularAutomata:
                     "non-negative integer values between 0 and 8"
                 )
         self.params.set(grid_size, birth_param, survive_param)
+
+    
+    def get_neighbours(self, x, y):
+        neighbour_cells = [
+            self.field[y - 1][x - 1],
+            self.field[y - 1][x],
+            self.field[y - 1][(x + 1) % self.params.field_size],
+
+            self.field[y][x - 1],
+            self.field[y][(x + 1) % self.params.field_size],
+
+            self.field[(y + 1) % self.params.field_size][x - 1],
+            self.field[(y + 1) % self.params.field_size][x],
+            self.field[(y + 1) % self.params.field_size][(x + 1) % self.params.field_size]
+        ]
+        return sum(neighbour_cells)
 
     def draw(self, screen):
         """ Draws current CA state on pygame screen """

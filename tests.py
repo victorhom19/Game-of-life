@@ -7,18 +7,6 @@ from main import CellularAutomata
 class OnStepTestCase(unittest.TestCase):
     """ Test case for on_step method. """
 
-    def test_invalid_state_1(self):
-        """ Attempt to update CA state which has invalid values """
-
-        ca = CellularAutomata()
-        ca.field = [
-            [-1, -1, -1],
-            [-1, -1, -1],
-            [-1, -1, -1]
-        ]
-        with self.assertRaises(ValueError):
-            ca.on_step()
-
     def test_invalid_state_2(self):
         """ Attempt to update CA state which has invalid value types """
 
@@ -35,20 +23,21 @@ class OnStepTestCase(unittest.TestCase):
         """ Test state update on 5x5 field """
 
         ca = CellularAutomata()
+        ca.params = CellularAutomata.Params(field_size=5)
         ca.field = [
-            [0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0],
-            [0, 0, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0]
+            [False, False, False, False, False],
+            [False, False, True, False, False],
+            [False, False, False, True, False],
+            [False, True, True, True, False],
+            [False, False, False, False, False]
         ]
         ca.on_step()
         assert ca.field == [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 1, 0, 1, 0],
-            [0, 0, 1, 1, 0],
-            [0, 0, 1, 0, 0]
+            [False, False, False, False, False],
+            [False, False, False, False, False],
+            [False, True, False, True, False],
+            [False, False, True, True, False],
+            [False, False, True, False, False]
         ]
 
 
@@ -143,20 +132,21 @@ class OnResetTestCase(unittest.TestCase):
         """ Test resetting state to default """
 
         ca = CellularAutomata()
+        ca.params = CellularAutomata.Params(field_size=5)
         ca.field = [
-            [0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0],
-            [0, 0, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0]
+            [False, False, False, False, False],
+            [False, False, True, False, False],
+            [False, False, False, True, False],
+            [False, True, True, True, False],
+            [False, False, False, False, False]
         ]
         ca.on_reset()
         assert ca.field == [
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0]
+            [False, False, False, False, False],
+            [False, False, False, False, False],
+            [False, False, False, False, False],
+            [False, False, False, False, False],
+            [False, False, False, False, False]
         ]
 
 class OnSwitchModeTestCase(unittest.TestCase):
