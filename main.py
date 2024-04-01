@@ -98,6 +98,8 @@ class CellularAutomata:
 
         self.cell_width = FIELD_WIDTH / self.params.field_size
 
+        self.update_screen = True
+
     def main(self):
         """ Provides main pygame running loop """
 
@@ -105,12 +107,14 @@ class CellularAutomata:
         screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
 
         self.running = True
+        self.init_draw(screen)
         while self.running:
             events = pygame.event.get()
             self.get_input(events)
             self.update()
-            self.draw(screen)
-            pygame.display.flip()
+            if self.update_screen:
+                self.draw(screen)
+                pygame.display.flip()
 
         pygame.quit()
 
@@ -129,6 +133,7 @@ class CellularAutomata:
                     row = int(x // cell_width)
                     column = int(y // cell_width)
                     self.field[column][row] = not self.field[column][row]
+                    self.update_screen = True
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = pygame.mouse.get_pos()
@@ -182,6 +187,7 @@ class CellularAutomata:
                     continue
 
         self.field = new_field
+        self.update_screen = True
 
     def set_params(self, grid_size: int, birth_param: List[int], survive_param: List[int]):
         """ Sets provided game parameters, such as grid size and birth/survive rules """
@@ -219,20 +225,32 @@ class CellularAutomata:
         ]
         return sum(neighbour_cells)
 
+    def init_draw(self, screen):
+        screen.fill((255, 255, 255))
+        for y, row in enumerate(self.field):
+            for x, cell in enumerate(row):
+                rect = pygame.Rect(FIELD_OFFSET_X + x * self.cell_width,
+                                   y * self.cell_width,
+                                   self.cell_width,
+                                   self.cell_width)
+                border_color = (160, 160, 160)
+                border_width = 1
+                pygame.draw.rect(screen, border_color, rect, border_width)
+
     def draw(self, screen):
         """ Draws current CA state on pygame screen """
 
-        screen.fill((255, 255, 255))
+        self.update_screen = False
 
         for y, row in enumerate(self.field):
             for x, cell in enumerate(row):
-                rect = pygame.Rect(FIELD_OFFSET_X + x * self.cell_width, y *
-                                   self.cell_width, self.cell_width, self.cell_width)
-                color = (0, 0, 0) if cell else (255, 255, 255)
-                border_color = (160, 160, 160)
                 border_width = 1
+                rect = pygame.Rect(FIELD_OFFSET_X + x * self.cell_width + border_width,
+                                   y * self.cell_width + border_width,
+                                   self.cell_width - 2 * border_width,
+                                   self.cell_width - 2 * border_width)
+                color = (0, 0, 0) if cell else (255, 255, 255)
                 pygame.draw.rect(screen, color, rect)
-                pygame.draw.rect(screen, border_color, rect, border_width)
 
         # draw controls:
         panel = pygame.Surface((CONTROL_PANE_WIDTH, CONTROL_PANE_HEIGHT))
@@ -317,10 +335,12 @@ class CellularAutomata:
     def on_switch_mode(self):
         """ Start button callback function """
         self.moving = not self.moving
+        self.update_screen = True
 
     def on_step(self):
         """ Step button callback function """
         self.step()
+        self.update_screen = True
 
     def on_load(self, path_to_file=None):
         """ Load button callback function """
@@ -332,6 +352,7 @@ class CellularAutomata:
         else:
             with open(path_to_file) as f:
                 self.field = json.loads(f.read())
+        self.update_screen = True
 
     def on_save(self, path_to_file=None):
         """ Save button callback function """
@@ -362,6 +383,7 @@ class CellularAutomata:
         ]
         self.moving = False
         self.update_rate = 0.5
+        self.update_screen = True
 
 
 if __name__ == '__main__':
